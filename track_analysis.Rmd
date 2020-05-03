@@ -1,0 +1,65 @@
+---
+title: "top100_changes"
+author: "Jeny Kwon"
+date: "4/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, fig.width = 7, fig.height = 3)
+# Load packages
+library(tidyverse)
+library(dplyr)
+library(plotly)
+library(formattable)
+```
+
+
+```{r}
+top100 <- read_csv("data/top_songs.csv")
+
+top100
+```
+
+```{r}
+by_week <- split(top100 , f = top100$week )
+```
+
+
+
+```{r}
+# Most popular song (rank 1) in 2019 and 2020 YTD
+
+rank1 <- top100 %>% 
+  filter(rank == 1) %>% 
+  select(!week) %>% 
+  group_by(artist, song) %>% 
+  summarize(frequency = n()) %>%
+  arrange(desc(frequency))
+
+
+formattable(rank1)
+  
+```
+
+```{r}
+rank1_frequency <- ggplot(rank1, aes(artist, frequency, fill = song)) +
+  theme(legend.position="none") +
+  labs(x = "Artist", 
+              y="Frequency at Rank 1",
+              title="Artists at Rank 1 on Billboard's Hot 100 Chart (2019-2020 YTD)",
+              subtitle="Separated by Song",
+              caption="source: https://www.billboard.com/charts/hot-100. 68 weeks") + 
+  coord_flip() +
+  geom_col() +
+  scale_fill_hue(l= 60, c = 60)
+
+
+ggplotly(rank1_frequency, width = 900, height = 450)
+```
+
+
+
+
+
+

@@ -1,0 +1,110 @@
+---
+title: "top100_scrape"
+author: "Jeny Kwon"
+date: "Last updated on `r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load packages
+library(tidyverse)
+library(rvest)
+library(dplyr)
+```
+
+
+## Billboard Hot 100 (By Week)
+### 2019, 2020
+
+```{r extract_saturdays}
+# This file extracts data and creates a csv file for analysis
+# No need to re-scrape data if new dates are not needed
+
+# Billboard's Hot 100 Chart updates every Saturday
+# Example of URL for one week https://www.billboard.com/charts/hot-100/2018-03-10
+# Date at the end corresponds to the weekly chart
+
+# This chunk gives all the Saturdays between the Start and End dates
+
+# Start date
+start <- as.Date("2019-01-05")
+
+# End date
+end <- as.Date(Sys.Date())
+
+# Index for every 7 days 
+every <- 6
+
+# Function to output every Saturday in 2019 and 2020
+pick.wkday <- function(every,start,end) {
+  add.7 <- start + 0:6
+  first.day <- add.7[as.numeric(format(add.7,"%w"))==every]
+  seq.Date(first.day,end,by="week")
+}
+
+# Every Saturday in 2019 and 2020
+weekly<- pick.wkday(every, start, end)
+
+```
+
+```{r weekly_urls}
+# Create weekly urls 
+# Source: Billboard's Hot 100 chart
+weekly_urls <- paste0("https://www.billboard.com/charts/hot-100/", weekly)
+
+#weekly_urls
+```
+
+```{r scrape_tracks}
+# Scrape track titles from weekly_urls
+track <- lapply(weekly_urls,
+              function(weekly_urls) {
+                weekly_urls %>% read_html() %>%
+                html_nodes(".chart-element__information") %>% 
+                html_node(".chart-element__information__song") %>% 
+                html_text()
+              }
+        ) 
+#track
+```
+
+```{r scrape_artists}
+# Scrape artist names from weekly_urls
+artist <- lapply(weekly_urls,
+                 function(weekly_urls) {
+                  weekly_urls %>% read_html() %>%
+                  html_nodes(".chart-element__information") %>% 
+                  html_nodes(".chart-element__information__artist") %>% 
+                  html_text()
+                 }
+          )
+#artist
+```
+
+```{r combined_df}
+track <- unlist(track, use.names=FALSE)
+artist <- unlist(artist, use.names=FALSE)
+
+# Add week for each top 100 track
+week <- rep(weekly, each = 100)
+
+# Create data frame
+top_df <- data.frame(song, artist, week) %>%
+  arrange(week) %>%
+  group_by(week) %>%
+  mutate(rank = 1:100) %>%
+  select(week, rank, everything())
+
+#top_df
+
+```
+
+```{r save_csv}
+# Create csv file with data
+# Used for rest of analysis 
+# Re-run this code for new weeks
+write.csv(top_df, "data/top_songs.csv", row.names = FALSE)
+```
+

@@ -1,0 +1,175 @@
+---
+title: "extract_lyrics"
+author: "Jeny Kwon"
+date: "4/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+
+#Load Packages
+library(genius)
+library(tidyverse)
+library(dplyr)
+library(mgsub)
+```
+
+```{r tracks_toExtract}
+top100 <- read_csv("data/top_songs.csv")
+
+# Remove repeated tracks
+freq_tracks <- top100 %>% 
+  group_by(artist, song) %>% 
+  summarize(frequency = n()) %>% 
+  arrange(desc(frequency))
+
+unique_tracks <- as_tibble(data.frame(artist = freq_tracks$artist, track= freq_tracks$song))
+```
+
+```{r extract1}
+# Extract lyrics (1st try)
+# Takes a long time to run
+
+lyrics1 <- unique_tracks %>%
+ add_genius(artist, track, type = "lyrics")
+```
+
+```{r extract1_csv}
+# Save lyrics as csv- no need to re-run all code
+write.csv(lyrics1, "data/top_lyrics.csv", row.names = FALSE)
+```
+
+```{r extract1_lyrics}
+lyrics1_saved <- read.csv("data/top_lyrics.csv")
+
+# Show which tracks have lyrics available 
+found1 <- lyrics1_saved %>%
+  group_by(artist, track) %>%
+  summarize(frequency = n())
+```
+
+```{r extract1_missing}
+# Figure out which tracks were missed by the above code
+missing1 <- anti_join(unique_tracks, found, by = c("track", "artist"))
+```
+
+```{r manual_test}
+# Manually tested a few of the missing lyrics
+#genius_lyrics(artist = "Migos", song = "Give No Fxk")
+```
+
+```{r clean1}
+# Genius package worked without featuring artists 
+# Remove Featuring artists to match Genius package
+unique_tracks2 <- data.frame(lapply(missing1, function(artist) {
+  gsub("Featuring .*", "", artist)
+}))
+```
+
+```{r extract2}
+# Extract lyrics
+# Takes a long time to run
+lyrics2 <- unique_tracks2 %>%
+ add_genius(artist, track, type = "lyrics")
+```
+
+```{r extract2_csv}
+# Save lyrics as csv- no need to re-run all code
+ write.csv(lyrics2, "data/top_lyrics2.csv", row.names = FALSE)
+```
+
+```{r extract2_lyrics}
+# Show which tracks have lyrics available 
+lyrics2_saved <- read.csv("data/top_lyrics2.csv")
+
+found2 <- lyrics2_saved %>%
+  group_by(artist, track) %>%
+  summarize(frequency = n())
+```
+
+```{r extract2_missing}
+# Combine tracks with available lyrics
+found1_2 <- bind_rows(found, found2)
+found1_2_sample <- found1_2 %>%
+  select(artist, track)
+
+# Match original dataframe to cleaned dataframe
+clean_unique_tracks <- data.frame(lapply(unique_tracks, function(artist) {
+  gsub("Featuring .*", "", artist)
+}))
+
+# Figure out which tracks were missed from extract2
+missing2 <- anti_join(clean_unique_tracks, found1_2, by = c("track","artist"))
+missing2[] <- lapply(missing2, as.character)
+
+```
+
+```{r check_missing}
+# Check if any songs are missing
+# Both dataframs should contain 850 tracks
+total_tracks <- bind_rows(found1_2, missing2)
+
+# Tracks can have same title, but different artist
+# total_tracks[["track"]][duplicated(total_tracks[["track"]])]
+
+missing_check <- anti_join(total_tracks , clean_unique_tracks, by = c("track", "artist"))
+```
+
+```{r clean2}
+# Get rid of "&" and "And" and Periods
+# Website Example: 
+unique_tracks3 <- data.frame(lapply(missing2, function(missing2) {
+  mgsub(missing2, c("\\.", "& .*"), c("", ""))
+  # gsub("\\.", "", artist) %>% 
+  # gsub("& .*", "", artist) 
+}))
+
+```
+
+```{r extract3}
+# Extract lyrics
+# Takes a long time to run
+lyrics3 <- unique_tracks3 %>%
+ add_genius(artist, track, type = "lyrics")
+```
+
+```{r extract3_csv}
+# Save lyrics as csv- no need to re-run all code
+ write.csv(lyrics3, "data/top_lyrics3.csv", row.names = FALSE)
+```
+
+```{r extract3_lyrics}
+# Show which tracks have lyrics available 
+lyrics3_saved <- read.csv("data/top_lyrics3.csv")
+
+found3 <- lyrics3_saved %>%
+  group_by(artist, track) %>%
+  summarize(frequency = n())
+```
+
+```{r extract3_missing}
+# Bind all soungs with lyrics
+found1_2_3 <- bind_rows(found1_2, found3)
+
+found1_2_3_sample <- found1_2_3 %>%
+  select(artist, track)
+
+# 
+clean_unique_tracks_2 <- bind_rows(found1_2_sample, clean_2) 
+
+ # Figure out which tracks were missed by first two extractions
+missing3 <- anti_join(clean_unique_tracks_2, found1_2_3_sample, by = c("track","artist"))
+missing3[] <- lapply(missing3, as.character)
+
+```
+
+```{r clean3}
+# Clean Up
+all_lyrics <- bind_rows(lyrics1_saved, lyrics2_saved, lyrics3_saved) %>% 
+  select(artist, track, line, lyric)
+
+# Save lyrics as csv- no need to re-run all code
+write.csv(all_lyrics, "data/all_lyrics.csv", row.names = FALSE)
+```
+

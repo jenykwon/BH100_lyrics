@@ -1,0 +1,40 @@
+---
+title: "lyrics_bySong"
+author: "Jeny Kwon"
+date: "5/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load Packages
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+# 796 songs, missing 54 (850 total) 
+all_songs <- read.csv("data/all_lyrics.csv")
+```
+
+```{r}
+all_songs <- all_songs %>% 
+  mutate(artist_track = paste(artist, track))
+
+#length(unique(all_songs$artist_track))
+
+# splitData <- split(all_songs, all_songs$artist_track)
+# 
+# allTracks <- names(splitData)
+# 
+# View(allTracks)
+# 
+# save_name <- for(thisTrack in allTracks) {
+#     saveTrack = paste0('data/',thisTrack, '.csv', sep = "")
+#     #saveRDS(splitData[thisTrack], file = saveTrack)
+# }
+# 
+# saveTrack
+```
+
