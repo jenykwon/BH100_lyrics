@@ -1,0 +1,65 @@
+---
+title: "lyrics_bySong"
+author: "Jeny Kwon"
+date: "5/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load Packages
+library(tidyverse)
+library(dplyr)
+library(tidytext)
+library(stringr)
+library(lexicon)
+
+# Load last updated date
+source("extract_saturdays.R")
+```
+
+```{r}
+all_lyrics <- read.csv(paste0("data/BH100lyrics(", last_update,").csv"))
+```
+
+```{r}
+number_lyrics <- length(unique(all_lyrics$artist_track))
+
+# Prepare lyrics data for text analysis
+lyrics_tidy <- all_lyrics %>% 
+  mutate_if(is.factor, as.character) %>% 
+  unnest_tokens(word, lyric) %>% 
+  # Trasnform to tidy text data and remove words such as "of, the, to, in"
+  #anti_join(stop_words) %>% 
+  group_by(artist_track) %>% 
+  mutate(wordnumber = row_number()) %>% 
+  ungroup()
+```
+
+```{r}
+total_words <- lyrics_tidy %>% 
+  count(artist_track, word) %>% 
+  group_by(artist_track) %>% 
+  summarize(total = sum(n))
+
+#total_words
+  
+average_words <- mean(total_words$total)
+```
+
+```{r}
+freq_words <- lyrics_tidy %>% 
+  group_by(word) %>% 
+  summarise(total = n()) %>% 
+  arrange(desc(total)) %>% 
+  rowid_to_column("ID")
+
+#freq_words
+```
+
+```{r}
+write.csv(freq_words, paste0("data/BH100lyrics_words(", last_update, ").csv"), row.names = FALSE)
+```
+
+
