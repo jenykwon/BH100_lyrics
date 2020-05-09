@@ -6,30 +6,37 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, cache = TRUE)
 
 #Load Packages
 library(genius)
 library(tidyverse)
 library(dplyr)
 library(mgsub)
+library(knitr)
+
+# Extract last updated date
+source("extract_saturdays.R")
 ```
 
 ```{r tracks_toExtract}
-top100 <- read_csv("data/top_songs.csv")
+# Chcek that the dates match
+BH100 <- read_csv(paste0("data/BH100songs(",last_update,").csv"))
 
 # Remove repeated tracks
-freq_tracks <- top100 %>% 
-  group_by(artist, song) %>% 
+freq_tracks <- BH100 %>% 
+  group_by(artist, track) %>% 
   summarize(frequency = n()) %>% 
   arrange(desc(frequency))
 
-unique_tracks <- as_tibble(data.frame(artist = freq_tracks$artist, track= freq_tracks$song))
+unique_tracks <- as_tibble(data.frame(artist = freq_tracks$artist, track= freq_tracks$track))
+
+number_original_tracks <- length(unique_tracks$track)
 ```
 
 ```{r extract1}
 # Extract lyrics (1st try)
-# Takes a long time to run
+# Takes a long time to run (25mins)
 
 lyrics1 <- unique_tracks %>%
  add_genius(artist, track, type = "lyrics")
@@ -37,25 +44,29 @@ lyrics1 <- unique_tracks %>%
 
 ```{r extract1_csv}
 # Save lyrics as csv- no need to re-run all code
-write.csv(lyrics1, "data/top_lyrics.csv", row.names = FALSE)
+write.csv(lyrics1, paste0("data/1_lyrics(", last_update, ").csv"), row.names = FALSE)
 ```
 
 ```{r extract1_lyrics}
-lyrics1_saved <- read.csv("data/top_lyrics.csv")
+lyrics1_saved <- read.csv(paste0("data/1_lyrics(", last_update, ").csv"))
 
 # Show which tracks have lyrics available 
 found1 <- lyrics1_saved %>%
   group_by(artist, track) %>%
   summarize(frequency = n())
+
+number_found1 <- length(found1$track)
 ```
 
 ```{r extract1_missing}
 # Figure out which tracks were missed by the above code
-missing1 <- anti_join(unique_tracks, found, by = c("track", "artist"))
+missing1 <- anti_join(unique_tracks, found1, by = c("track", "artist"))
+
+number_missing1 <- length(missing1$track)
 ```
 
-```{r manual_test}
-# Manually tested a few of the missing lyrics
+```{r manual_check}
+# Manually check a few of the missing lyrics
 #genius_lyrics(artist = "Migos", song = "Give No Fxk")
 ```
 
@@ -69,28 +80,30 @@ unique_tracks2 <- data.frame(lapply(missing1, function(artist) {
 
 ```{r extract2}
 # Extract lyrics
-# Takes a long time to run
+# Takes a long time to run (20mins)
 lyrics2 <- unique_tracks2 %>%
  add_genius(artist, track, type = "lyrics")
 ```
 
 ```{r extract2_csv}
 # Save lyrics as csv- no need to re-run all code
- write.csv(lyrics2, "data/top_lyrics2.csv", row.names = FALSE)
+ write.csv(lyrics2, paste0("data/2_lyrics(", last_update, ").csv"), row.names = FALSE)
 ```
 
 ```{r extract2_lyrics}
 # Show which tracks have lyrics available 
-lyrics2_saved <- read.csv("data/top_lyrics2.csv")
+lyrics2_saved <- read.csv(paste0("data/2_lyrics(", last_update, ").csv"))
 
 found2 <- lyrics2_saved %>%
   group_by(artist, track) %>%
   summarize(frequency = n())
+
+number_found2 <- length(found2$track)
 ```
 
 ```{r extract2_missing}
 # Combine tracks with available lyrics
-found1_2 <- bind_rows(found, found2)
+found1_2 <- bind_rows(found1, found2)
 found1_2_sample <- found1_2 %>%
   select(artist, track)
 
@@ -103,6 +116,8 @@ clean_unique_tracks <- data.frame(lapply(unique_tracks, function(artist) {
 missing2 <- anti_join(clean_unique_tracks, found1_2, by = c("track","artist"))
 missing2[] <- lapply(missing2, as.character)
 
+number_missing2 <- length(missing2$track)
+
 ```
 
 ```{r check_missing}
@@ -114,38 +129,39 @@ total_tracks <- bind_rows(found1_2, missing2)
 # total_tracks[["track"]][duplicated(total_tracks[["track"]])]
 
 missing_check <- anti_join(total_tracks , clean_unique_tracks, by = c("track", "artist"))
+
+missing_check_number <- length(missing_check$track)
 ```
 
 ```{r clean2}
 # Get rid of "&" and "And" and Periods
-# Website Example: 
 unique_tracks3 <- data.frame(lapply(missing2, function(missing2) {
   mgsub(missing2, c("\\.", "& .*"), c("", ""))
-  # gsub("\\.", "", artist) %>% 
-  # gsub("& .*", "", artist) 
 }))
 
 ```
 
 ```{r extract3}
 # Extract lyrics
-# Takes a long time to run
+# Running time (5-10mins)
 lyrics3 <- unique_tracks3 %>%
  add_genius(artist, track, type = "lyrics")
 ```
 
 ```{r extract3_csv}
 # Save lyrics as csv- no need to re-run all code
- write.csv(lyrics3, "data/top_lyrics3.csv", row.names = FALSE)
+write.csv(lyrics3, paste0("data/3_lyrics(", last_update, ").csv"), row.names = FALSE)
 ```
 
 ```{r extract3_lyrics}
 # Show which tracks have lyrics available 
-lyrics3_saved <- read.csv("data/top_lyrics3.csv")
+lyrics3_saved <- read.csv(paste0("data/3_lyrics(", last_update, ").csv"))
 
 found3 <- lyrics3_saved %>%
   group_by(artist, track) %>%
   summarize(frequency = n())
+
+number_found3 <- length(found3$track)
 ```
 
 ```{r extract3_missing}
@@ -155,21 +171,34 @@ found1_2_3 <- bind_rows(found1_2, found3)
 found1_2_3_sample <- found1_2_3 %>%
   select(artist, track)
 
-# 
-clean_unique_tracks_2 <- bind_rows(found1_2_sample, clean_2) 
+# Combine tracks found from 1st and 2nd extractions with cleaned up missing data after 2nd
+clean_unique_tracks <- bind_rows(found1_2_sample, unique_tracks3) 
 
- # Figure out which tracks were missed by first two extractions
-missing3 <- anti_join(clean_unique_tracks_2, found1_2_3_sample, by = c("track","artist"))
+ # Figure out which tracks were missed after first two extractions
+missing3 <- anti_join(clean_unique_tracks, found1_2_3_sample, by = c("track","artist")) %>% 
+  mutate(artist_track = paste(artist, track)) %>% 
+  mutate_if(is.factor, as.character)
 missing3[] <- lapply(missing3, as.character)
 
+number_missing3 <- length(missing3$track)
+
+write.csv(missing3, paste0("data/BH100missing(",last_update, ").csv"))
 ```
+
+```{r}
+# Final check if sum of available tracks and missing ones equals initial number of tracks
+all.equal(number_found1 + number_found2 + number_found3 + number_missing3, number_original_tracks)
+```
+
 
 ```{r clean3}
 # Clean Up
 all_lyrics <- bind_rows(lyrics1_saved, lyrics2_saved, lyrics3_saved) %>% 
-  select(artist, track, line, lyric)
+  select(artist, track, line, lyric) %>% 
+  mutate(artist_track = paste(artist, track)) %>% 
+  mutate_if(is.factor, as.character)
 
 # Save lyrics as csv- no need to re-run all code
-write.csv(all_lyrics, "data/all_lyrics.csv", row.names = FALSE)
+write.csv(all_lyrics, paste0("data/BH100lyrics(", last_update, ").csv"), row.names = FALSE)
 ```
 
